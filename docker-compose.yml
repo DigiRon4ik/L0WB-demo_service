@@ -1,0 +1,77 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:14
+    container_name: postgres
+    networks:
+      - db-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: demo_password
+      POSTGRES_USER: demo_user
+      POSTGRES_DB: demo_db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U demo_user -d demo_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  back-migrate:
+    image: migrate/migrate
+    container_name: back-migrate
+    networks:
+      - db-network
+    volumes:
+      - ./migrations:/migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    links:
+      - postgres
+    command: [ "-path", "/migrations", "-database", "postgres://demo_user:demo_password@postgres:5432/demo_db?sslmode=disable", "up" ]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.8.0
+    container_name: zookeeper
+    networks:
+      - broker-network
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    container_name: kafka
+    networks:
+      - broker-network
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_MIN_INSYNC_REPLICAS: "1"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    command: >
+      sh -c "
+      /etc/confluent/docker/run &
+      sleep 10 &&
+      kafka-topics --create --topic orders --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 ||
+      echo 'The topic (orders) already exists';
+      wait"
+
+networks:
+  db-network:
+  broker-network:
+
+
+volumes:
+  postgres_data:
