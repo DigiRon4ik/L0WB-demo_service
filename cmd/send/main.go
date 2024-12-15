@@ -14,7 +14,7 @@ import (
 func main() {
 	// Загружаем конфигурацию брокера
 	cfg := config.MustLoad()
-	fmt.Println(cfg)
+	// fmt.Println(cfg)
 
 	// Создаем новый продюсер Kafka
 	producer, err := newKafkaProducer(cfg.Broker)
@@ -38,8 +38,7 @@ func main() {
 	if err := sendMessage(producer, cfg.Broker.Topic, order); err != nil {
 		log.Fatalf("Ошибка при отправке сообщения: %v\n", err)
 	}
-	// log.Printf("Order: %v\n", order)
-	log.Println("Сообщение отправлено в Kafka.")
+	log.Printf("Сообщение c Order_UID:(%s) отправлено в Kafka.", order.OrderUID)
 }
 
 // newKafkaProducer - создает новый Kafka продюсер
@@ -50,7 +49,7 @@ func newKafkaProducer(broker_cfg config.Broker) (sarama.SyncProducer, error) {
 
 	producer, err := sarama.NewSyncProducer(broker_cfg.Hosts, config)
 	if err != nil {
-		return nil, fmt.Errorf("Ошибка при создании продюсера Kafka: %w", err)
+		return nil, fmt.Errorf("ошибка при создании продюсера Kafka: %w", err)
 	}
 
 	return producer, nil
@@ -60,7 +59,7 @@ func newKafkaProducer(broker_cfg config.Broker) (sarama.SyncProducer, error) {
 func sendMessage(producer sarama.SyncProducer, topic string, order models.Order) error {
 	message, err := json.Marshal(order)
 	if err != nil {
-		return fmt.Errorf("Ошибка при маршаллинге сообщения: %w", err)
+		return fmt.Errorf("ошибка при маршаллинге сообщения: %w", err)
 	}
 
 	// Создаем сообщение для Kafka
@@ -72,7 +71,7 @@ func sendMessage(producer sarama.SyncProducer, topic string, order models.Order)
 	// Отправляем сообщение в Kafka
 	_, _, err = producer.SendMessage(kafkaMessage)
 	if err != nil {
-		return fmt.Errorf("Ошибка при отправке сообщения в Kafka: %w", err)
+		return fmt.Errorf("ошибка при отправке сообщения в Kafka: %w", err)
 	}
 
 	return nil
