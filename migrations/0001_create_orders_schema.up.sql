@@ -81,8 +81,6 @@ CREATE TABLE IF NOT EXISTS items (
 -- Create table for orders with unique constraint
 CREATE TABLE IF NOT EXISTS orders (
     order_uid VARCHAR(20) PRIMARY KEY,
-    delivery_id INTEGER NOT NULL REFERENCES deliveries (id) ON DELETE CASCADE,
-    payment_id INTEGER NOT NULL REFERENCES payments (id) ON DELETE CASCADE,
     track_number VARCHAR(255) NOT NULL,
     entry VARCHAR(50) NOT NULL,
     locale VARCHAR(10) NOT NULL,
@@ -92,7 +90,9 @@ CREATE TABLE IF NOT EXISTS orders (
     shardkey VARCHAR(50) NOT NULL,
     sm_id INTEGER NOT NULL,
     date_created TIMESTAMP NOT NULL,
-    oof_shard VARCHAR(50) NOT NULL
+    oof_shard VARCHAR(50) NOT NULL,
+    delivery_id INTEGER NOT NULL REFERENCES deliveries (id) ON DELETE CASCADE,
+    payment_id INTEGER NOT NULL REFERENCES payments (id) ON DELETE CASCADE
 );
 
 -- Create join table for order items with unique constraint

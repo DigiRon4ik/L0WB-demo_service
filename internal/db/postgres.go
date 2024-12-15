@@ -40,7 +40,7 @@ var Queries = map[string]string{
 		RETURNING id;
 	`,
 	"insertOrder": `
-		INSERT INTO orders (order_uid, delivery_id, payment_id, track_number, entry, locale, internal_signature, customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard)
+		INSERT INTO orders (order_uid, track_number, entry, locale, internal_signature, customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard, delivery_id, payment_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (order_uid)
 		DO NOTHING;
@@ -116,35 +116,59 @@ func (s *Storage) Close() {
 	}
 }
 
-// extractStructValues извлекает значения всех экспортируемых полей структуры
-func extractStructValues(entity interface{}) ([]interface{}, error) {
-	const fn = "extractStructValues"
+// Helper Functions
+func extractStructFields(entity interface{}, returnAddresses bool) ([]interface{}, error) {
+	const fn = "extractStructFields"
 
 	val := reflect.ValueOf(entity)
 
-	if val.Kind() == reflect.Ptr {
+	if returnAddresses {
+		if val.Kind() != reflect.Ptr || val.IsNil() {
+			return nil, fmt.Errorf("(%s) | entity must be a non-nil pointer to a struct", fn)
+		}
 		val = val.Elem()
+	} else {
+		if val.Kind() == reflect.Ptr {
+			val = val.Elem()
+		}
 	}
 
 	if val.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("(%s) | entity is not a struct or pointer to struct", fn)
 	}
 
-	var values []interface{}
-	for i := 0; i < val.NumField(); i++ {
+	var fields []interface{}
+	typ := val.Type()
+
+	for i := 0; i < typ.NumField(); i++ {
 		field := val.Field(i)
-		if field.CanInterface() {
-			values = append(values, field.Interface())
+		fieldType := typ.Field(i)
+		dbTag := fieldType.Tag.Get("db")
+		if dbTag == "" || dbTag == "-" {
+			continue
+		}
+		if returnAddresses {
+			if field.CanSet() {
+				fields = append(fields, field.Addr().Interface())
+			}
+		} else {
+			if field.CanInterface() {
+				fields = append(fields, field.Interface())
+			}
 		}
 	}
 
-	return values, nil
+	return fields, nil
 }
+
+/*
+	DB Saving Functions
+*/
 
 func (s *Storage) saveEntityRow(ctx context.Context, query string, entity interface{}) (interface{}, error) {
 	const fn = "saveEntity"
 
-	values, err := extractStructValues(entity)
+	values, err := extractStructFields(entity, false)
 	if err != nil {
 		return nil, fmt.Errorf("(%s) | failed to extract struct values: %w", fn, err)
 	}
@@ -235,26 +259,17 @@ func (s *Storage) SaveOrder(ctx context.Context, order models.Order) error {
 		return nil
 	}
 
-	devAndPayIDs, err := s.saveDeliveryAndPayment(ctx, order.Delivery, order.Payment)
+	delAndPayIDs, err := s.saveDeliveryAndPayment(ctx, order.Delivery, order.Payment)
 	if err != nil {
 		return fmt.Errorf("(%s) | failed to call saveDeliveryAndPayment: %w", fn, err)
 	}
 
-	if _, err := s.pool.Exec(ctx, Queries["insertOrder"],
-		order.OrderUID,
-		devAndPayIDs[0],
-		devAndPayIDs[1],
-		order.TrackNumber,
-		order.Entry,
-		order.Locale,
-		order.InternalSignature,
-		order.CustomerID,
-		order.DeliveryService,
-		order.Shardkey,
-		order.SmID,
-		order.DateCreated,
-		order.OofShard,
-	); err != nil {
+	values, err := extractStructFields(order, false)
+	if err != nil {
+		return fmt.Errorf("(%s) | failed to extract: %w", fn, err)
+	}
+	values = append(values, delAndPayIDs...)
+	if _, err := s.pool.Exec(ctx, Queries["insertOrder"], values...); err != nil {
 		return fmt.Errorf("(%s) | failed to insert order: %w", fn, err)
 	}
 
@@ -277,6 +292,10 @@ func (s *Storage) checkOrderExists(ctx context.Context, orderUID string) (bool, 
 	}
 	return false, nil
 }
+
+/*
+	DB Getting Functions
+*/
 
 func (s *Storage) getDelivery(ctx context.Context, deliveryID int) (models.Delivery, error) {
 	const fn = "getDelivery"
