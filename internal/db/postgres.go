@@ -56,27 +56,27 @@ var Queries = map[string]string{
 		FROM (
 			SELECT *
 			FROM orders
-			ORDER BY id DESC
+			ORDER BY date_created DESC
 			LIMIT $1
 		) AS subquery
-		ORDER BY id ASC;
+		ORDER BY date_created ASC;
 	`,
 	"getDelivery": `
-		SELECT *
+		SELECT name, phone, zip, city, address, region, email
 		FROM deliveries
 		WHERE id = $1
 	`,
 	"getPayment": `
-		SELECT *
+		SELECT transaction, request_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee
 		FROM payments
 		WHERE id = $1
 	`,
 	"getOrderItems": `
-		SELECT i.*
+		SELECT i.chrt_id, i.track_number, i.price, i.rid, i.name, i.sale, i.size, i.total_price, i.nm_id, i.brand, i.status
 		FROM items i
 		JOIN order_items oi ON i.id = oi.item_id
-		JOIN orders o ON oi.order_id = o.id
-		WHERE o.id = $1;
+		JOIN orders o ON oi.order_uid = o.order_uid
+		WHERE o.order_uid = $1;
 	`,
 }
 
@@ -166,7 +166,7 @@ func extractStructFields(entity interface{}, returnAddresses bool) ([]interface{
 */
 
 func (s *Storage) saveEntityRow(ctx context.Context, query string, entity interface{}) (interface{}, error) {
-	const fn = "saveEntity"
+	const fn = "saveEntityRow"
 
 	values, err := extractStructFields(entity, false)
 	if err != nil {
@@ -297,155 +297,92 @@ func (s *Storage) checkOrderExists(ctx context.Context, orderUID string) (bool, 
 	DB Getting Functions
 */
 
-func (s *Storage) getDelivery(ctx context.Context, deliveryID int) (models.Delivery, error) {
-	const fn = "getDelivery"
+func (s *Storage) getEntityRow(ctx context.Context, query string, queryValues []interface{}, entity interface{}) error {
+	const fn = "getEntityRow"
 
-	var id int
-	var delivery models.Delivery
-	err := s.pool.QueryRow(ctx, "getDelivery", deliveryID).Scan(
-		&id,
-		&delivery.Name,
-		&delivery.Phone,
-		&delivery.Zip,
-		&delivery.City,
-		&delivery.Address,
-		&delivery.Region,
-		&delivery.Email,
-	)
+	scanArgs, err := extractStructFields(entity, true)
 	if err != nil {
-		return models.Delivery{}, fmt.Errorf("(%s) | failed to get delivery: %w", fn, err)
+		return fmt.Errorf("(%s) | failed to extract scan args: %w", fn, err)
 	}
-	log.Printf("(%s) | Delivery found with ID: %d", fn, deliveryID)
-	return delivery, nil
+
+	entityType := reflect.TypeOf(entity).Name()
+
+	err = s.pool.QueryRow(ctx, query, queryValues...).Scan(scanArgs...)
+	if err != nil {
+		return fmt.Errorf("(%s) | failed to scan %s: %w", fn, entityType, err)
+	}
+
+	log.Printf("(%s) | %s found!\n", fn, entityType)
+	return nil
 }
 
-func (s *Storage) getPayment(ctx context.Context, paymentID int) (models.Payment, error) {
-	const fn = "getPayment"
-
-	var id int
-	var payment models.Payment
-	err := s.pool.QueryRow(ctx, "getPayment", paymentID).Scan(
-		&id,
-		&payment.Transaction,
-		&payment.RequestID,
-		&payment.Currency,
-		&payment.Provider,
-		&payment.Amount,
-		&payment.PaymentDT,
-		&payment.Bank,
-		&payment.DeliveryCost,
-		&payment.GoodsTotal,
-		&payment.CustomFee,
-	)
-
-	if err != nil {
-		return models.Payment{}, fmt.Errorf("(%s) | failed to get payment: %w", fn, err)
-	}
-	log.Printf("(%s) | Payment found with ID: %d", fn, paymentID)
-	return payment, nil
-}
-
-func (s *Storage) getOrderItems(ctx context.Context, orderID int) ([]models.Item, error) {
+func (s *Storage) getOrderItems(ctx context.Context, orderUID string) ([]models.Item, error) {
 	const fn = "getOrderItems"
 
 	var items []models.Item
 
-	rows, err := s.pool.Query(ctx, "getOrderItems", orderID)
+	rows, err := s.pool.Query(ctx, Queries["getOrderItems"], orderUID)
 	if err != nil {
 		return nil, fmt.Errorf("(%s) | failed to get order items: %w", fn, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var id int
 		var item models.Item
-		err = rows.Scan(
-			&id,
-			&item.ChrtID,
-			&item.TrackNumber,
-			&item.Price,
-			&item.RID,
-			&item.Name,
-			&item.Sale,
-			&item.Size,
-			&item.TotalPrice,
-			&item.NMID,
-			&item.Brand,
-			&item.Status,
-		)
+		scanArgs, err := extractStructFields(&item, true)
 		if err != nil {
+			return nil, fmt.Errorf("(%s) | failed to extract: %w", fn, err)
+		}
+		if err := rows.Scan(scanArgs...); err != nil {
 			return nil, fmt.Errorf("(%s) | failed to scan row: %w", fn, err)
 		}
 		items = append(items, item)
 	}
+	rows.Close()
 
-	log.Printf("(%s) | All items found by orderID: %d", fn, orderID)
+	log.Printf("(%s) | All items found by orderUID: %v", fn, orderUID)
 	return items, nil
 }
 
 func (s *Storage) GetLastLimitOrders(ctx context.Context, limit int) ([]models.Order, error) {
 	const fn = "GetLastLimitOrders"
 
-	rows, err := s.pool.Query(ctx, "getLastLimitOrders", limit)
+	rows, err := s.pool.Query(ctx, Queries["getLastLimitOrders"], limit)
 	if err != nil {
 		return nil, fmt.Errorf("(%s) | failed to execute query getLastLimitOrders: %w", fn, err)
 	}
 	defer rows.Close()
 
 	orders := make([]models.Order, 0, limit)
-	var tempOrders []tempOrder
-
 	for rows.Next() {
-		var tempOrder tempOrder
-		if err := rows.Scan(
-			&tempOrder.OrderID,
-			&tempOrder.DeliveyID,
-			&tempOrder.PaymentID,
-			&tempOrder.Order.OrderUID,
-			&tempOrder.Order.TrackNumber,
-			&tempOrder.Order.Entry,
-			&tempOrder.Order.Locale,
-			&tempOrder.Order.InternalSignature,
-			&tempOrder.Order.CustomerID,
-			&tempOrder.Order.DeliveryService,
-			&tempOrder.Order.Shardkey,
-			&tempOrder.Order.SmID,
-			&tempOrder.Order.DateCreated,
-			&tempOrder.Order.OofShard,
-		); err != nil {
+		var order models.Order
+		var deliveryID, paymentID int
+		log.Printf("(%s) | Order found!\n", fn)
+		scanArgs, err := extractStructFields(&order, true)
+		if err != nil {
+			return nil, fmt.Errorf("(%s) | failed to extract: %w", fn, err)
+		}
+		scanArgs = append(scanArgs, &deliveryID, &paymentID)
+		if err := rows.Scan(scanArgs...); err != nil {
 			return nil, fmt.Errorf("(%s) | failed to scan row: %w", fn, err)
 		}
-		tempOrders = append(tempOrders, tempOrder)
-	}
-	rows.Close()
 
-	for _, tempOrder := range tempOrders {
-		tempOrder.Order.Delivery, err = s.getDelivery(ctx, tempOrder.DeliveyID)
+		err = s.getEntityRow(ctx, Queries["getDelivery"], []interface{}{deliveryID}, &order.Delivery)
 		if err != nil {
-			return nil, fmt.Errorf("(%s) | failed to get delivery: %w", fn, err)
+			return nil, fmt.Errorf("(%s) | failed to get Delivery: %w", fn, err)
 		}
-		tempOrder.Order.Payment, err = s.getPayment(ctx, tempOrder.PaymentID)
+		err = s.getEntityRow(ctx, Queries["getPayment"], []interface{}{paymentID}, &order.Payment)
 		if err != nil {
-			return nil, fmt.Errorf("(%s) | failed to get payment: %w", fn, err)
+			return nil, fmt.Errorf("(%s) | failed to get Payment: %w", fn, err)
 		}
-		tempOrder.Order.Items, err = s.getOrderItems(ctx, tempOrder.OrderID)
+		order.Items, err = s.getOrderItems(ctx, order.OrderUID)
 		if err != nil {
 			return nil, fmt.Errorf("(%s) | failed to get order items: %w", fn, err)
 		}
-		orders = append(orders, tempOrder.Order)
+		orders = append(orders, order)
 	}
-
-	if err != nil {
-		return nil, fmt.Errorf("(%s) | failed to scan rows: %w", fn, err)
-	}
+	rows.Close()
 
 	log.Printf("(%s) | %d orders found!", fn, len(orders))
 	return orders, nil
-}
-
-type tempOrder struct {
-	OrderID   int
-	DeliveyID int
-	PaymentID int
-	Order     models.Order
 }
