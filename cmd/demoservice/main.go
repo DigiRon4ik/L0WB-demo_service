@@ -46,7 +46,7 @@ func main() {
 		log.Fatalf("Error creating a Kafka adapter: %v\n", err)
 	}
 
-	log.Println("Starting service...")
+	log.Println("Starting service... version: ", cfg.Version)
 	go consumerProcessor(ctx)
 
 	ordModule := orderModule.New(ctx, cacheInstance, storage)

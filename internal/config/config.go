@@ -17,6 +17,7 @@ type Config struct {
 	DB         DataBase   `yaml:"DataBase"`
 	Broker     Broker     `yaml:"Broker"`
 	Cache      Cache      `yaml:"Cache"`
+	Version    string     `yaml:"version"`
 }
 
 // HTTPServer contains configuration details for the HTTP server.
