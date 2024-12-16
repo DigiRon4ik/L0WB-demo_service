@@ -16,4 +16,4 @@ Broker:
 Cache:
   capacity: 100
 
-version: "v0.7"
+version: "v0.8"
