@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS items (
 
 -- Create table for orders with unique constraint
 CREATE TABLE IF NOT EXISTS orders (
-    order_uid VARCHAR(20) PRIMARY KEY,
+    order_uid VARCHAR(36) PRIMARY KEY,
     track_number VARCHAR(255) NOT NULL,
     entry VARCHAR(50) NOT NULL,
     locale VARCHAR(10) NOT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS orders (
 -- Create join table for order items with unique constraint
 CREATE TABLE IF NOT EXISTS order_items (
     id SERIAL PRIMARY KEY,
-    order_uid VARCHAR(20) NOT NULL REFERENCES orders (order_uid) ON DELETE CASCADE,
+    order_uid VARCHAR(36) NOT NULL REFERENCES orders (order_uid) ON DELETE CASCADE,
     item_id INTEGER NOT NULL REFERENCES items (id) ON DELETE CASCADE,
     CONSTRAINT unique_order_items UNIQUE (order_uid, item_id)
 );

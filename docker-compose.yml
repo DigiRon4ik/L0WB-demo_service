@@ -60,17 +60,42 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_MIN_INSYNC_REPLICAS: "1"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--list", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
     command: >
       sh -c "
       /etc/confluent/docker/run &
-      sleep 10 &&
+      sleep 15 &&
       kafka-topics --create --topic orders --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 ||
       echo 'The topic (orders) already exists';
       wait"
 
+  app:
+    build: ./
+    container_name: app
+    networks:
+      - db-network
+      - broker-network
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      back-migrate:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_started
+    # environment:
+    #   - CONFIG_PATH=value
+
 networks:
   db-network:
+    driver: bridge
   broker-network:
+    driver: bridge
 
 
 volumes:

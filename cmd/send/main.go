@@ -2,12 +2,12 @@
 package main
 
 import (
+	"demo_service/cmd/send/fake_order"
 	"demo_service/internal/config"
 	"demo_service/internal/models"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/IBM/sarama"
 )
@@ -24,18 +24,7 @@ func main() {
 	}
 	defer producer.Close()
 
-	// Пример отправки сообщения
-	data, err := os.ReadFile("model.json")
-	if err != nil {
-		log.Fatalf("Ошибка чтения файла: %v", err)
-	}
-
-	var order models.Order
-	err = json.Unmarshal(data, &order)
-	if err != nil {
-		log.Fatalf("Ошибка анмаршаллинга JSON: %v", err)
-	}
-
+	order := fake_order.GenerateFakeOrder()
 	if err := sendMessage(producer, cfg.Broker.Topic, order); err != nil {
 		log.Fatalf("Ошибка при отправке сообщения: %v\n", err)
 	}
