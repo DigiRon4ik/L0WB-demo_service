@@ -1,3 +1,5 @@
+// Package config provides functionality to load and manage
+// application configuration from YAML files and environment variables.
 package config
 
 import (
@@ -8,6 +10,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config holds the entire application configuration,
+// including HTTP server, database, broker, and cache settings.
 type Config struct {
 	HTTPServer HTTPServer `yaml:"HTTPServer"`
 	DB         DataBase   `yaml:"DataBase"`
@@ -15,10 +19,12 @@ type Config struct {
 	Cache      Cache      `yaml:"Cache"`
 }
 
+// HTTPServer contains configuration details for the HTTP server.
 type HTTPServer struct {
 	Address string `yaml:"address" env-default:"localhost:8080"`
 }
 
+// DataBase contains configuration information for connecting to the database.
 type DataBase struct {
 	DbName   string `yaml:"db_name"`
 	Host     string `yaml:"host"`
@@ -27,16 +33,21 @@ type DataBase struct {
 	Password string `yaml:"password"`
 }
 
+// Broker contains configuration for the message broker.
 type Broker struct {
 	Hosts   []string `yaml:"hosts"`
 	GroupID string   `yaml:"group_id"`
 	Topic   string   `yaml:"topic"`
 }
 
+// Cache contains configuration for the cache, including its capacity.
 type Cache struct {
 	Capacity int `yaml:"capacity"`
 }
 
+// MustLoad loads the configuration from the .env file
+// and a config file specified by the CONFIG_PATH environment variable,
+// and returns the parsed Config. The function terminates the program on errors.
 func MustLoad() *Config {
 	const fn = "MustLoad"
 

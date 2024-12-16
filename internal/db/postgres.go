@@ -1,3 +1,8 @@
+// Package db provides functions and methods for interacting with the PostgreSQL database.
+//
+// It manages the connection pool, executes queries, and handles database transactions for the service.
+//
+// This includes transactions such as storing orders, payments, deliveries and items, and retrieving orders.
 package db
 
 import (
@@ -12,7 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var Queries = map[string]string{
+var queries = map[string]string{
 	"checkOrderByUID": `
 		SELECT order_uid
 		FROM orders
@@ -78,12 +83,20 @@ var Queries = map[string]string{
 		JOIN orders o ON oi.order_uid = o.order_uid
 		WHERE o.order_uid = $1;
 	`,
+	"getOrderByUID": `
+		SELECT *
+		FROM orders
+		WHERE order_uid = $1
+	`,
 }
 
+// Storage holds the database connection pool for interacting with the PostgreSQL database.
 type Storage struct {
 	pool *pgxpool.Pool
 }
 
+// getPsqlConStr generates a PostgreSQL connection string
+// based on the provided database configuration.
 func getPsqlConStr(db config.DataBase) string {
 	// postgresql://<username>:<password>@<hostname>:<port>/<dbname>
 	str := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable",
@@ -91,9 +104,11 @@ func getPsqlConStr(db config.DataBase) string {
 	return str
 }
 
-func NewPgsql(ctx context.Context, db_cfg config.DataBase) (*Storage, error) {
-	const fn = "NewPgsql"
-	dsn := getPsqlConStr(db_cfg)
+// New creates a new Storage instance, establishing a connection pool to the database
+// and checking the connection by pinging the database.
+func New(ctx context.Context, dbCfg config.DataBase) (*Storage, error) {
+	const fn = "New"
+	dsn := getPsqlConStr(dbCfg)
 
 	pool, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
@@ -105,10 +120,11 @@ func NewPgsql(ctx context.Context, db_cfg config.DataBase) (*Storage, error) {
 		return nil, fmt.Errorf("(%s) | failed to ping database: %w", fn, err)
 	}
 
-	log.Println("Connected to PostgreSQL (using pool) successfully!")
+	log.Println("Connected to DB (using pool) successfully!")
 	return &Storage{pool: pool}, nil
 }
 
+// Close closes the database connection pool if it's open, logging the closure.
 func (s *Storage) Close() {
 	if s.pool != nil {
 		s.pool.Close()
@@ -116,7 +132,10 @@ func (s *Storage) Close() {
 	}
 }
 
-// Helper Functions
+// extractStructFields extracts the fields of a struct as interfaces,
+// optionally returning their addresses,
+// skipping fields without a "db" tag or with a "-" tag,
+// and ensuring the struct is a valid pointer or value.
 func extractStructFields(entity interface{}, returnAddresses bool) ([]interface{}, error) {
 	const fn = "extractStructFields"
 
@@ -165,6 +184,8 @@ func extractStructFields(entity interface{}, returnAddresses bool) ([]interface{
 	DB Saving Functions
 */
 
+// saveEntityRow inserts a new row into the database based on the provided entity,
+// extracting the struct fields, and returns the value of the generated field (e.g., ID).
 func (s *Storage) saveEntityRow(ctx context.Context, query string, entity interface{}) (interface{}, error) {
 	const fn = "saveEntityRow"
 
@@ -185,6 +206,8 @@ func (s *Storage) saveEntityRow(ctx context.Context, query string, entity interf
 	return returnField, nil
 }
 
+// saveDeliveryAndPayment concurrently saves the delivery and payment entities to the database,
+// returning the generated IDs for both entities after successful insertion.
 func (s *Storage) saveDeliveryAndPayment(ctx context.Context, delivery models.Delivery, payment models.Payment) ([]interface{}, error) {
 	const fn = "saveDeliveryAndPayment"
 
@@ -194,7 +217,7 @@ func (s *Storage) saveDeliveryAndPayment(ctx context.Context, delivery models.De
 
 	g.Go(func() error {
 		var err error
-		deliveryID, err = s.saveEntityRow(gCtx, Queries["insertDelivery"], delivery)
+		deliveryID, err = s.saveEntityRow(gCtx, queries["insertDelivery"], delivery)
 		if err != nil {
 			return fmt.Errorf("(%s) | failed to save Delivery: %w", fn, err)
 		}
@@ -203,7 +226,7 @@ func (s *Storage) saveDeliveryAndPayment(ctx context.Context, delivery models.De
 
 	g.Go(func() error {
 		var err error
-		paymentID, err = s.saveEntityRow(gCtx, Queries["insertPayment"], payment)
+		paymentID, err = s.saveEntityRow(gCtx, queries["insertPayment"], payment)
 		if err != nil {
 			return fmt.Errorf("(%s) | failed to save Payment: %w", fn, err)
 		}
@@ -219,6 +242,8 @@ func (s *Storage) saveDeliveryAndPayment(ctx context.Context, delivery models.De
 	return []interface{}{deliveryID, paymentID}, nil
 }
 
+// saveItems concurrently saves the items for an order and associates them with the given orderUID,
+// ensuring that each item is inserted into the database and linked to the order.
 func (s *Storage) saveItems(ctx context.Context, orderUID string, items []models.Item) error {
 	const fn = "saveItems"
 
@@ -232,11 +257,11 @@ func (s *Storage) saveItems(ctx context.Context, orderUID string, items []models
 
 	for _, item := range items {
 		g.Go(func() error {
-			itemID, err := s.saveEntityRow(gCtx, Queries["insertItem"], item)
+			itemID, err := s.saveEntityRow(gCtx, queries["insertItem"], item)
 			if err != nil {
 				return fmt.Errorf("(%s) | failed to save Item: %w", fn, err)
 			}
-			if _, err := s.pool.Exec(gCtx, Queries["insertOrderItems"], orderUID, itemID); err != nil {
+			if _, err := s.pool.Exec(gCtx, queries["insertOrderItems"], orderUID, itemID); err != nil {
 				return fmt.Errorf("(%s) | failed to insert OrderUID_ItemsID: %w", fn, err)
 			}
 			return nil
@@ -252,6 +277,8 @@ func (s *Storage) saveItems(ctx context.Context, orderUID string, items []models
 	return nil
 }
 
+// SaveOrder checks if an order with the given UID already exists, and if not,
+// saves the order along with its associated delivery, payment, and items to the database.
 func (s *Storage) SaveOrder(ctx context.Context, order models.Order) error {
 	const fn = "SaveOrder"
 
@@ -271,7 +298,7 @@ func (s *Storage) SaveOrder(ctx context.Context, order models.Order) error {
 		return fmt.Errorf("(%s) | failed to extract: %w", fn, err)
 	}
 	values = append(values, delAndPayIDs...)
-	if _, err := s.pool.Exec(ctx, Queries["insertOrder"], values...); err != nil {
+	if _, err := s.pool.Exec(ctx, queries["insertOrder"], values...); err != nil {
 		return fmt.Errorf("(%s) | failed to insert order: %w", fn, err)
 	}
 
@@ -283,9 +310,11 @@ func (s *Storage) SaveOrder(ctx context.Context, order models.Order) error {
 	return nil
 }
 
+// checkOrderExists checks if an order with the given orderUID already exists in the database
+// and returns true if it does, or false if it does not, along with any potential errors.
 func (s *Storage) checkOrderExists(ctx context.Context, orderUID string) (bool, error) {
 	var existing string
-	err := s.pool.QueryRow(ctx, Queries["checkOrderByUID"], orderUID).Scan(&existing)
+	err := s.pool.QueryRow(ctx, queries["checkOrderByUID"], orderUID).Scan(&existing)
 	if err != nil && err.Error() != "no rows in result set" {
 		return true, err
 	} else if existing != "" {
@@ -299,6 +328,8 @@ func (s *Storage) checkOrderExists(ctx context.Context, orderUID string) (bool, 
 	DB Getting Functions
 */
 
+// getEntityRow executes a query to fetch a single row from the database,
+// scans the result into the provided entity, and logs the success or failure of the operation.
 func (s *Storage) getEntityRow(ctx context.Context, query string, queryValues []interface{}, entity interface{}) error {
 	const fn = "getEntityRow"
 
@@ -318,12 +349,14 @@ func (s *Storage) getEntityRow(ctx context.Context, query string, queryValues []
 	return nil
 }
 
+// getOrderItems retrieves all items for a given orderUID from the database,
+// scans the results concurrently, and returns the list of items associated with the order.
 func (s *Storage) getOrderItems(ctx context.Context, orderUID string) ([]models.Item, error) {
 	const fn = "getOrderItems"
 
 	var items []models.Item
 
-	rows, err := s.pool.Query(ctx, Queries["getOrderItems"], orderUID)
+	rows, err := s.pool.Query(ctx, queries["getOrderItems"], orderUID)
 	if err != nil {
 		return nil, fmt.Errorf("(%s) | failed to get order items: %w", fn, err)
 	}
@@ -357,10 +390,13 @@ func (s *Storage) getOrderItems(ctx context.Context, orderUID string) ([]models.
 	return items, nil
 }
 
+// GetLastLimitOrders retrieves the last 'limit' orders from the database,
+// concurrently finalizes each order by fetching related delivery, payment, and items,
+// and returns the populated (done) orders.
 func (s *Storage) GetLastLimitOrders(ctx context.Context, limit int) ([]models.Order, error) {
 	const fn = "GetLastLimitOrders"
 
-	rows, err := s.pool.Query(ctx, Queries["getLastLimitOrders"], limit)
+	rows, err := s.pool.Query(ctx, queries["getLastLimitOrders"], limit)
 	if err != nil {
 		return nil, fmt.Errorf("(%s) | failed to execute query getLastLimitOrders: %w", fn, err)
 	}
@@ -402,6 +438,30 @@ func (s *Storage) GetLastLimitOrders(ctx context.Context, limit int) ([]models.O
 	return orders, nil
 }
 
+// GetOrderByUID retrieves the order by its UID from the database, scans the relevant data,
+// and finalizes the order by adding shipping, payment, and item information, then returns it.
+func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (models.Order, error) {
+	const fn = "GetOrder"
+
+	var order models.Order
+	var deliveryID, paymentID int
+
+	scanArgs, err := extractStructFields(&order, true)
+	if err != nil {
+		return models.Order{}, fmt.Errorf("(%s) | failed to extract: %w", fn, err)
+	}
+	scanArgs = append(scanArgs, &deliveryID, &paymentID)
+	if err := s.pool.QueryRow(ctx, queries["getOrderByUID"], orderUID).Scan(scanArgs...); err != nil {
+		return models.Order{}, fmt.Errorf("(%s) | failed to scan row: %w", fn, err)
+	}
+	if err := s.finalizeOrder(ctx, &order, deliveryID, paymentID); err != nil {
+		return models.Order{}, fmt.Errorf("(%s) | failed to call finalizeOrder: %w", fn, err)
+	}
+	return order, nil
+}
+
+// finalizeOrder concurrently fetches the delivery, payment, and items for the order
+// and populates the respective fields in the order object, handling errors during the process.
 func (s *Storage) finalizeOrder(ctx context.Context, order *models.Order, dID, pID int) error {
 	const fn = "finalizeOrder"
 
@@ -409,7 +469,7 @@ func (s *Storage) finalizeOrder(ctx context.Context, order *models.Order, dID, p
 	defer gCtx.Done()
 
 	g.Go(func() error {
-		err := s.getEntityRow(gCtx, Queries["getDelivery"], []interface{}{dID}, &order.Delivery)
+		err := s.getEntityRow(gCtx, queries["getDelivery"], []interface{}{dID}, &order.Delivery)
 		if err != nil {
 			return fmt.Errorf("(%s) | failed to get Delivery: %w", fn, err)
 		}
@@ -417,7 +477,7 @@ func (s *Storage) finalizeOrder(ctx context.Context, order *models.Order, dID, p
 	})
 
 	g.Go(func() error {
-		err := s.getEntityRow(gCtx, Queries["getPayment"], []interface{}{pID}, &order.Payment)
+		err := s.getEntityRow(gCtx, queries["getPayment"], []interface{}{pID}, &order.Payment)
 		if err != nil {
 			return fmt.Errorf("(%s) | failed to get Payment: %w", fn, err)
 		}
