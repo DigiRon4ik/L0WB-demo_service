@@ -42,12 +42,12 @@ func main() {
 }
 
 // newKafkaProducer - создает новый Kafka продюсер
-func newKafkaProducer(broker_cfg config.Broker) (sarama.SyncProducer, error) {
+func newKafkaProducer(brokerCfg config.Broker) (sarama.SyncProducer, error) {
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.WaitForAll // Ожидаем подтверждения от всех реплик
 	config.Producer.Return.Successes = true          // Возвращаем успешные сообщения
 
-	producer, err := sarama.NewSyncProducer(broker_cfg.Hosts, config)
+	producer, err := sarama.NewSyncProducer(brokerCfg.Hosts, config)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка при создании продюсера Kafka: %w", err)
 	}

@@ -78,6 +78,11 @@ var Queries = map[string]string{
 		JOIN orders o ON oi.order_uid = o.order_uid
 		WHERE o.order_uid = $1;
 	`,
+	"getOrderByUID": `
+		SELECT *
+		FROM orders
+		WHERE order_uid = $1
+	`,
 }
 
 type Storage struct {
@@ -91,9 +96,9 @@ func getPsqlConStr(db config.DataBase) string {
 	return str
 }
 
-func NewPgsql(ctx context.Context, db_cfg config.DataBase) (*Storage, error) {
-	const fn = "NewPgsql"
-	dsn := getPsqlConStr(db_cfg)
+func New(ctx context.Context, dbCfg config.DataBase) (*Storage, error) {
+	const fn = "New"
+	dsn := getPsqlConStr(dbCfg)
 
 	pool, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
@@ -105,7 +110,7 @@ func NewPgsql(ctx context.Context, db_cfg config.DataBase) (*Storage, error) {
 		return nil, fmt.Errorf("(%s) | failed to ping database: %w", fn, err)
 	}
 
-	log.Println("Connected to PostgreSQL (using pool) successfully!")
+	log.Println("Connected to DB (using pool) successfully!")
 	return &Storage{pool: pool}, nil
 }
 
@@ -400,6 +405,26 @@ func (s *Storage) GetLastLimitOrders(ctx context.Context, limit int) ([]models.O
 
 	log.Printf("(%s) | %d orders found!", fn, len(orders))
 	return orders, nil
+}
+
+func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (models.Order, error) {
+	const fn = "GetOrder"
+
+	var order models.Order
+	var deliveryID, paymentID int
+
+	scanArgs, err := extractStructFields(&order, true)
+	if err != nil {
+		return models.Order{}, fmt.Errorf("(%s) | failed to extract: %w", fn, err)
+	}
+	scanArgs = append(scanArgs, &deliveryID, &paymentID)
+	if err := s.pool.QueryRow(ctx, Queries["getOrderByUID"], orderUID).Scan(scanArgs...); err != nil {
+		return models.Order{}, fmt.Errorf("(%s) | failed to scan row: %w", fn, err)
+	}
+	if err := s.finalizeOrder(ctx, &order, deliveryID, paymentID); err != nil {
+		return models.Order{}, fmt.Errorf("(%s) | failed to call finalizeOrder: %w", fn, err)
+	}
+	return order, nil
 }
 
 func (s *Storage) finalizeOrder(ctx context.Context, order *models.Order, dID, pID int) error {

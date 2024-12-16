@@ -11,35 +11,35 @@ import (
 	"github.com/IBM/sarama"
 )
 
-// KafkaAdapter - структура для работы с Kafka
-type KafkaAdapter struct {
+// ConsumerAdapter - структура для работы с Kafka
+type ConsumerAdapter struct {
 	consumerGroup sarama.ConsumerGroup
 	topic         string
 }
 
-// NewKafkaAdapter - конструктор адаптера Kafka
-func NewKafkaAdapter(broker_cfg config.Broker) (*KafkaAdapter, error) {
-	const fn = "NewKafkaAdapter"
+// NewConsumerAdapter - конструктор адаптера Kafka
+func NewConsumerAdapter(brokerCfg config.Broker) (*ConsumerAdapter, error) {
+	const fn = "NewConsumerAdapter"
 
 	config := sarama.NewConfig()
 	config.Version = sarama.V3_6_0_0 // Установите версию Kafka
 	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
 
-	consumerGroup, err := sarama.NewConsumerGroup(broker_cfg.Hosts, broker_cfg.GroupID, config)
+	consumerGroup, err := sarama.NewConsumerGroup(brokerCfg.Hosts, brokerCfg.GroupID, config)
 	if err != nil {
-		return nil, fmt.Errorf("(%s) | Error creating kafkaAdapter: %w", fn, err)
+		return nil, fmt.Errorf("(%s) | Error creating ConsumerAdapter: %w", fn, err)
 	}
 
 	log.Printf("(%s) | Kafka created!\n", fn)
 
-	return &KafkaAdapter{
+	return &ConsumerAdapter{
 		consumerGroup: consumerGroup,
-		topic:         broker_cfg.Topic,
+		topic:         brokerCfg.Topic,
 	}, nil
 }
 
 // Start - запуск адаптера для обработки сообщений
-func (k *KafkaAdapter) Start(ctx context.Context, messageHandler func(order models.Order) error) {
+func (k *ConsumerAdapter) Start(ctx context.Context, messageHandler func(order models.Order) error) {
 	const fn = "Start"
 
 	handler := &kafkaConsumerHandler{
@@ -58,7 +58,7 @@ func (k *KafkaAdapter) Start(ctx context.Context, messageHandler func(order mode
 }
 
 // Close - завершение работы с Kafka
-func (k *KafkaAdapter) Close() error {
+func (k *ConsumerAdapter) Close() error {
 	return k.consumerGroup.Close()
 }
 

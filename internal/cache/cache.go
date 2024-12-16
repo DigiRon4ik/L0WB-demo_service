@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-type CacheItem struct {
+type cacheItem struct {
 	Key   string
 	Value models.Order
 }
@@ -32,7 +32,7 @@ func (c *Cache) Set(key string, value models.Order) bool {
 
 	if element, exists := c.cache[key]; exists {
 		c.queue.MoveToFront(element)
-		element.Value.(*CacheItem).Value = value
+		element.Value.(*cacheItem).Value = value
 		return true
 	}
 
@@ -40,7 +40,7 @@ func (c *Cache) Set(key string, value models.Order) bool {
 		c.purge()
 	}
 
-	cacheItem := &CacheItem{
+	cacheItem := &cacheItem{
 		Key:   key,
 		Value: value,
 	}
@@ -65,12 +65,12 @@ func (c *Cache) Get(key string) (models.Order, bool) {
 	defer c.mu.Unlock()
 
 	c.queue.MoveToFront(element)
-	return element.Value.(*CacheItem).Value, true
+	return element.Value.(*cacheItem).Value, true
 }
 
 func (c *Cache) purge() {
 	if element := c.queue.Back(); element != nil {
-		cacheItem := c.queue.Remove(element).(*CacheItem)
+		cacheItem := c.queue.Remove(element).(*cacheItem)
 		delete(c.cache, cacheItem.Key)
 	}
 }

@@ -37,6 +37,7 @@ type Cache struct {
 	Capacity int `yaml:"capacity"`
 }
 
+// asdasd
 func MustLoad() *Config {
 	const fn = "MustLoad"
 
