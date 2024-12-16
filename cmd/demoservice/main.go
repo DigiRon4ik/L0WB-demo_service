@@ -1,3 +1,4 @@
+// Package main the original file.
 package main
 
 import (
@@ -34,7 +35,7 @@ func main() {
 		log.Fatalf("Fatal ERROR: %v", err)
 	}
 
-	cacheInstance = cache.NewCahce(cfg.Cache.Capacity)
+	cacheInstance = cache.New(cfg.Cache.Capacity)
 	if err := cacheFill(ctx, cfg.Cache.Capacity); err != nil {
 		log.Fatalf("Fatal ERROR: %v", err)
 	}

@@ -1,3 +1,11 @@
+// Package kafka provides an adapter for consuming messages from a Kafka topic.
+//
+// It uses the sarama library to interact with Kafka and implements a consumer group pattern.
+//
+// The ConsumerAdapter listens for messages from the specified topic,
+// processes them using a provided handler function, and manages Kafka consumer group sessions.
+//
+// The package supports graceful shutdown and error handling during message processing.
 package kafka
 
 import (
@@ -11,13 +19,19 @@ import (
 	"github.com/IBM/sarama"
 )
 
-// ConsumerAdapter - структура для работы с Kafka
+// ConsumerAdapter represents a Kafka consumer group that consumes messages from a specific topic.
+// It wraps around the `sarama.ConsumerGroup` and holds the topic name to facilitate message consumption.
 type ConsumerAdapter struct {
 	consumerGroup sarama.ConsumerGroup
 	topic         string
 }
 
-// NewConsumerAdapter - конструктор адаптера Kafka
+// NewConsumerAdapter creates a new instance of ConsumerAdapter,
+// which is a Kafka consumer group that consumes messages from a specified topic.
+//
+// It sets up the necessary Kafka consumer configurations,
+// including the version and rebalance strategy,
+// and initializes the consumer group for the provided brokers.
 func NewConsumerAdapter(brokerCfg config.Broker) (*ConsumerAdapter, error) {
 	const fn = "NewConsumerAdapter"
 
@@ -38,7 +52,11 @@ func NewConsumerAdapter(brokerCfg config.Broker) (*ConsumerAdapter, error) {
 	}, nil
 }
 
-// Start - запуск адаптера для обработки сообщений
+// Start begins the consumption of messages from the Kafka topic.
+// It continuously consumes messages using the provided consumer group
+// and processes them using the provided message handler function.
+//
+// The consumer will keep running in a loop until the provided context is canceled or an error occurs.
 func (k *ConsumerAdapter) Start(ctx context.Context, messageHandler func(order models.Order) error) {
 	const fn = "Start"
 
@@ -57,27 +75,35 @@ func (k *ConsumerAdapter) Start(ctx context.Context, messageHandler func(order m
 	}
 }
 
-// Close - завершение работы с Kafka
+// Close gracefully shuts down the Kafka consumer group, releasing any resources associated with it.
+//
+// This method ensures that the consumer group is closed and any ongoing consumption is properly terminated.
 func (k *ConsumerAdapter) Close() error {
 	return k.consumerGroup.Close()
 }
 
-// kafkaConsumerHandler - обработчик сообщений Kafka
+// kafkaConsumerHandler represents the Kafka message handler for the consumer,
+// which accepts messages from Kafka and passes them to the processing function.
 type kafkaConsumerHandler struct {
 	messageHandler func(order models.Order) error
 }
 
-// Setup - вызывается перед началом обработки
+// Setup - is called before the start of processing. Doesn't do anything yet.
 func (h *kafkaConsumerHandler) Setup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-// Cleanup - вызывается после завершения обработки
+// Cleanup - is called after the processing is complete. Doesn't do anything yet.
 func (h *kafkaConsumerHandler) Cleanup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-// ConsumeClaim - обработка сообщений
+// ConsumeClaim processes messages from a Kafka consumer group claim.
+// It unmarshals each message's value into an `Order` object
+// and processes it using the provided message handler.
+// After processing each message, it marks the message as processed in the session.
+// If there are errors in unmarshalling or processing,
+// they are logged but do not interrupt the consumption of further messages.
 func (h *kafkaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	const fn = "ConsumeClaim"
 	for message := range claim.Messages() {

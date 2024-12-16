@@ -1,8 +1,14 @@
+// Package models contains the data structures that represent various aspects of an order system.
+// It includes models for orders, payments, items, and delivery details.
+// These models are used to handle and store order-related information.
+// The structures are designed to work with both the database and the JSON representation of the data.
 package models
 
 import "time"
 
-// Структура Order
+// Order represents an order placed by a customer, including its unique identifier,
+// tracking information, delivery and payment details, items in the order,
+// and other related metadata such as customer ID and order creation date.
 type Order struct {
 	OrderUID          string    `json:"order_uid" db:"order_uid"`
 	TrackNumber       string    `json:"track_number" db:"track_number"`
@@ -20,7 +26,7 @@ type Order struct {
 	OofShard          string    `json:"oof_shard" db:"oof_shard"`
 }
 
-// Структура Delivery
+// Delivery represents a single pelivery in an order
 type Delivery struct {
 	Name    string `json:"name" db:"name"`
 	Phone   string `json:"phone" db:"phone"`
@@ -31,7 +37,7 @@ type Delivery struct {
 	Email   string `json:"email" db:"email"`
 }
 
-// Структура Payment
+// Payment represents a single payment in an order
 type Payment struct {
 	Transaction  string `json:"transaction" db:"transaction"`
 	RequestID    string `json:"request_id" db:"request_id"`
@@ -45,7 +51,7 @@ type Payment struct {
 	CustomFee    int    `json:"custom_fee" db:"custom_fee"`
 }
 
-// Структура Item
+// Item represents a single item in an order
 type Item struct {
 	ChrtID      int    `json:"chrt_id" db:"chrt_id"`
 	TrackNumber string `json:"track_number" db:"track_number"`

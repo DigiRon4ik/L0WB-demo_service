@@ -1,3 +1,7 @@
+// Package server provides the implementation of the HTTP API server that handles
+// requests related to orders. It defines the APIServer struct, which holds the
+// configuration, router, and orderer for interacting with orders. The server
+// exposes an HTTP endpoint to retrieve an order by its unique identifier (UID).
 package server
 
 import (
@@ -9,6 +13,14 @@ import (
 	"time"
 )
 
+// Orderer defines the methods for interacting with orders,
+// including retrieving an order by its UID.
+type Orderer interface {
+	GetOrder(ctx context.Context, orderUID string) (*models.Order, error)
+}
+
+// APIServer represents the HTTP API server with configuration, router, context,
+// and orderer for handling requests.
 type APIServer struct {
 	config *config.HTTPServer
 	router *http.ServeMux
@@ -16,10 +28,8 @@ type APIServer struct {
 	ord    Orderer
 }
 
-type Orderer interface {
-	GetOrder(ctx context.Context, orderUID string) (*models.Order, error)
-}
-
+// New creates a new APIServer instance with the provided context,
+// ordererModule, and server configuration.
 func New(ctx context.Context, ord Orderer, config *config.HTTPServer) *APIServer {
 	router := http.NewServeMux()
 
@@ -31,14 +41,16 @@ func New(ctx context.Context, ord Orderer, config *config.HTTPServer) *APIServer
 	}
 }
 
+// Start initializes the HTTP server with specified timeout settings and router,
+// then starts listening for requests.
 func (s *APIServer) Start() error {
 	s.configureRouter()
 	server := &http.Server{
 		Addr:         s.config.Address,
 		Handler:      s.router,
-		ReadTimeout:  10 * time.Second,  // Таймаут чтения запроса
-		WriteTimeout: 10 * time.Second,  // Таймаут записи ответа
-		IdleTimeout:  120 * time.Second, // Таймаут ожидания keep-alive соединений
+		ReadTimeout:  30 * time.Second,  // Request read timeout
+		WriteTimeout: 10 * time.Second,  // Response Record Timeout
+		IdleTimeout:  120 * time.Second, // Keep-alive connections timeout
 	}
 
 	return server.ListenAndServe()

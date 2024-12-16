@@ -1,3 +1,4 @@
+// Package main contains the main entry point for the Kafka producer application.
 package main
 
 import (
