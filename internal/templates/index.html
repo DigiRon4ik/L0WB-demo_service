@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Viewer</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script>
+      async function fetchOrder(event) {
+        event.preventDefault();
+
+        const uid = document.getElementById("orderUID").value;
+        const resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = ""; // Очищаем старый результат
+
+        try {
+          const response = await fetch(`/order/${uid}`);
+          if (response.ok) {
+            const order = await response.json();
+
+            // Генерируем HTML для отображения всех данных заказа
+            resultDiv.innerHTML = `
+                        <h2>Order Details</h2>
+                        <p><strong>Order UID:</strong> ${order.order_uid}</p>
+                        <p><strong>Track Number:</strong> ${order.track_number}</p>
+                        <p><strong>Entry:</strong> ${order.entry}</p>
+                        
+                        <h3>Delivery</h3>
+                        <p><strong>Name:</strong> ${order.delivery.name}</p>
+                        <p><strong>Phone:</strong> ${order.delivery.phone}</p>
+                        <p><strong>Zip:</strong> ${order.delivery.zip}</p>
+                        <p><strong>City:</strong> ${order.delivery.city}</p>
+                        <p><strong>Address:</strong> ${order.delivery.address}</p>
+                        <p><strong>Region:</strong> ${order.delivery.region}</p>
+                        <p><strong>Email:</strong> ${order.delivery.email}</p>
+
+                        <h3>Payment</h3>
+                        <p><strong>Transaction:</strong> ${order.payment.transaction}</p>
+                        <p><strong>Request ID:</strong> ${order.payment.request_id}</p>
+                        <p><strong>Currency:</strong> ${order.payment.currency}</p>
+                        <p><strong>Provider:</strong> ${order.payment.provider}</p>
+                        <p><strong>Amount:</strong> ${order.payment.amount}</p>
+                        <p><strong>Payment Date:</strong> ${new Date(order.payment.payment_dt * 1000).toLocaleString()}</p>
+                        <p><strong>Bank:</strong> ${order.payment.bank}</p>
+                        <p><strong>Delivery Cost:</strong> ${order.payment.delivery_cost}</p>
+                        <p><strong>Goods Total:</strong> ${order.payment.goods_total}</p>
+                        <p><strong>Custom Fee:</strong> ${order.payment.custom_fee}</p>
+
+                        <h3>Items</h3>
+                        <ul>
+                            ${order.items
+                              .map(
+                                (item) => `
+                                <li><strong>Item Name:</strong> ${item.name}, <strong>Price:</strong> ${item.price}, <strong>Total Price:</strong> ${item.total_price}, <strong>Brand:</strong> ${item.brand}, <strong>Status:</strong> ${item.status}</li>
+                            `
+                              )
+                              .join("")}
+                        </ul>
+
+                        <h3>Additional Information</h3>
+                        <p><strong>Locale:</strong> ${order.locale}</p>
+                        <p><strong>Internal Signature:</strong> ${order.internal_signature || "N/A"}</p>
+                        <p><strong>Customer ID:</strong> ${order.customer_id}</p>
+                        <p><strong>Delivery Service:</strong> ${order.delivery_service}</p>
+                        <p><strong>Shardkey:</strong> ${order.shardkey}</p>
+                        <p><strong>SM ID:</strong> ${order.sm_id}</p>
+                        <p><strong>Date Created:</strong> ${new Date(order.date_created).toLocaleString()}</p>
+                        <p><strong>OOF Shard:</strong> ${order.oof_shard}</p>
+                    `;
+          } else {
+            resultDiv.innerHTML = `<p class="error">Order not found. Please check the UID and try again.</p>`;
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `<p class="error">An error occurred: ${error.message}</p>`;
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Order Viewer</h1>
+      <form id="orderForm" onsubmit="fetchOrder(event)">
+        <label for="orderUID">Enter Order UID:</label>
+        <input type="text" id="orderUID" name="orderUID" required />
+        <button type="submit">Fetch Order</button>
+      </form>
+      <div id="result"></div>
+    </div>
+  </body>
+</html>

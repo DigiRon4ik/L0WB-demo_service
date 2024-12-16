@@ -70,5 +70,9 @@ func (s *APIServer) getOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *APIServer) configureRouter() {
-	s.router.HandleFunc("GET /order/{uid}", s.getOrder)
+	s.router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "internal/templates/index.html")
+	})
+	s.router.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("internal/templates/static/"))))
+	s.router.HandleFunc("/order/", s.getOrder)
 }
