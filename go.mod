@@ -4,6 +4,7 @@ go 1.23.4
 
 require (
 	github.com/IBM/sarama v1.43.3
+	github.com/brianvoe/gofakeit/v7 v7.1.2
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/joho/godotenv v1.5.1

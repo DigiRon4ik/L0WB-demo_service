@@ -1,0 +1,17 @@
+HTTPServer:
+  address: "app:8080"
+
+DataBase:
+  db_name: "demo_db"
+  host: "postgres"
+  port: "5432"
+  username: "demo_user"
+  password: "demo_password"
+
+Broker:
+  hosts: ["kafka:29092"]
+  group_id: "order-consumer-group"
+  topic: "orders"
+
+Cache:
+  capacity: 100
