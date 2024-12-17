@@ -46,17 +46,22 @@
 > [!WARNING]
 > Before you can send messages to Kafka, you must have Golang installed on your PC and run the go mod tidy command. The script for sending a message is for demonstration purposes only and is not related to the service. Thank you for your understanding.
 - **Data Retrieval:**
-  - Use the web interface at [localhost:8080](http://localhost:8080/) to retrieve the data. Or via API «/order/{uid}»
+  - Use the web interface at [localhost:8080](http://localhost:8080/) to retrieve the data. Or via API _«/order/{uid}»_
+
+---
+
+### Video:
+<p align="center">
+  <a href="https://youtu.be/5S7tCNepatA">
+    <img src="https://i.imgur.com/ma6wGIF.png" >
+  </a>
+</p>
 
 ---
 
 ### Screenshot:
 <p align="center">
-  <img src="https://i.imgur.com/bH4IARW.png" >
+  <img src="https://i.imgur.com/LreGtB1.png" >
 </p>
-
----
-
-### Video:
 
 ---
