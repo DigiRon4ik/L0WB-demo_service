@@ -16,16 +16,6 @@
 
 ---
 
-- #### _Packages:_
-    - [github.com/jackc/pgx/v4](https://github.com/jackc/pgx) == _v4.18.3_
-    - [github.com/IBM/sarama](https://github.com/IBM/sarama) == _v1.43.3_
-    - [github.com/joho/godotenv](https://github.com/joho/godotenv) == _v1.5.1_
-    - [github.com/ilyakaznacheev/cleanenv](https://github.com/ilyakaznacheev/cleanenv) == _v1.5.0_
-    - [github.com/brianvoe/gofakeit/v7](https://github.com/brianvoe/gofakeit) == _v7.1.2_
-    - [golang.org/x/sync](https://pkg.go.dev/golang.org/x/sync) == _v0.8.0_
-
----
-
 ### — _How to Install and Use:_
 - **Install and Start the Service:**
   ```bash
