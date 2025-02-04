@@ -51,7 +51,7 @@
 
 ### Screenshot:
 <p align="center">
-  <img src="https://i.imgur.com/LreGtB1.png" >
+  <img src="https://i.imgur.com/bH4IARW.png" >
 </p>
 
 ---
