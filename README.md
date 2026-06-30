@@ -2,7 +2,7 @@
   <img src="https://user-images.githubusercontent.com/25181517/192149581-88194d20-1a37-4be8-8801-5dc0017ffbbe.png" width="100">
 </p>
 <h1 align="center">L0WB-demo_service</h1>
-<h3 align="center">The simplest microservice made for the test task «L0» on the course <a href="https://tech.wildberries.ru/courses/golang/application">«Gorutin Golang»</a> in <a href="https://tech.wildberries.ru/">«TechSchool»</a> from <a href="https://www.wildberries.ru/">«Wildberries»</a></h3>
+<h3 align="center">The simplest microservice made for the test task «L0» on the course <a href="https://tech.wildberries.ru/gorutinovyy-golang">«Gorutin Golang»</a> in <a href="https://tech.wildberries.ru/">«TechSchool»</a> from <a href="https://www.wildberries.ru/">«Wildberries»</a></h3>
 <p align="center">The service subscribes to a specific topic in Kafka and listens indefinitely. It receives the message as JSON, converts it into a structure and saves it in the database and memcached. You can retrieve saved messages by UID via web-interface.</p>
 
 
