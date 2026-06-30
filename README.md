@@ -43,7 +43,7 @@
 ### Video:
 <p align="center">
   <a href="https://youtu.be/5S7tCNepatA">
-    <img src="https://i.imgur.com/ma6wGIF.png" >
+    <img src="https://i.imgur.com/65vytX4.png" >
   </a>
 </p>
 
